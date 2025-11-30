@@ -1,12 +1,43 @@
-import Layout from '@/components/Layout'
+// app/teacher/comment/page.tsx
+'use client';
+
+import { useState } from 'react';
+import Layout from '@/components/Layout';
+import CommentForm from '@/components/CommentForm';
+import { FiMessageSquare } from 'react-icons/fi';
+import { useTranslation } from '@/lib/i18n';
 
 export default function TeacherComment() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
   return (
-    <Layout role="librarian">
-      <div className="bg-white p-6 rounded-xl shadow-sm">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">teacher comment</h1>
-        <p className="text-gray-600">View, search, and manage all books.</p>
+    <Layout role="teacher">
+      <div className="p-6 space-y-6">
+        <div className="bg-white p-6 rounded-xl shadow text-center">
+          <FiMessageSquare className="mx-auto text-6xl text-blue-600 mb-4" />
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">{t('giveFeedback')}</h1>
+          <p className="text-gray-600 mb-6">{t('shareThoughts')}</p>
+          <button
+            onClick={() => setOpen(true)}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
+          >
+            <FiMessageSquare /> {t('giveComment')}
+          </button>
+        </div>
+
+        {open && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <h2 className="text-xl font-bold mb-4">{t('sendToAdmin')}</h2>
+              <CommentForm onClose={() => setOpen(false)} />
+              <button onClick={() => setOpen(false)} className="mt-4 w-full border py-2 rounded text-red-600 hover:bg-red-50">
+                {t('cancel')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
-  )
+  );
 }

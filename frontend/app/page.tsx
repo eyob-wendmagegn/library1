@@ -1,42 +1,48 @@
-'use client'
+//app/page.tsx
+'use client';
 
-import Link from 'next/link'
-import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { useTranslation } from '@/lib/i18n';
+import Footer from '@/components/Footer'; // <-- Added import
 
 export default function Home() {
-  const words = ['anytime', 'anywhere']
-  const [currentWordIndex, setCurrentWordIndex] = useState(0)
-  const [displayedText, setDisplayedText] = useState('')
-  const [isDeleting, setIsDeleting] = useState(false)
+  const { t } = useTranslation();
+
+  // Use translated words for typing animation
+  const words = [t('anytime'), t('anywhere')];
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const currentWord = words[currentWordIndex]
-    let timeout: NodeJS.Timeout
+    const currentWord = words[currentWordIndex];
+    let timeout: NodeJS.Timeout;
 
     if (!isDeleting && displayedText.length < currentWord.length) {
       timeout = setTimeout(() => {
-        setDisplayedText(currentWord.slice(0, displayedText.length + 1))
-      }, 120)
+        setDisplayedText(currentWord.slice(0, displayedText.length + 1));
+      }, 120);
     } else if (!isDeleting && displayedText.length === currentWord.length) {
       timeout = setTimeout(() => {
-        setIsDeleting(true)
-      }, 1500)
+        setIsDeleting(true);
+      }, 1500);
     } else if (isDeleting && displayedText.length > 0) {
       timeout = setTimeout(() => {
-        setDisplayedText(currentWord.slice(0, displayedText.length - 1))
-      }, 80)
+        setDisplayedText(currentWord.slice(0, displayedText.length - 1));
+      }, 80);
     } else if (isDeleting && displayedText.length === 0) {
-      setIsDeleting(false)
-      setCurrentWordIndex((prev) => (prev + 1) % words.length)
+      setIsDeleting(false);
+      setCurrentWordIndex((prev) => (prev + 1) % words.length);
     }
 
-    return () => clearTimeout(timeout)
-  }, [displayedText, isDeleting, currentWordIndex])
+    return () => clearTimeout(timeout);
+  }, [displayedText, isDeleting, currentWordIndex, words]);
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       {/* ENHANCED BACKGROUND */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         {/* Base Gradient */}
@@ -125,27 +131,30 @@ export default function Home() {
         <div className="absolute inset-0 opacity-5 bg-noise-texture" />
       </div>
 
-      {/* CONTENT */}
-      <div className="min-h-screen flex items-center justify-center p-6 relative z-10">
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex items-center justify-center p-6 relative z-10">
         <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-center">
           
-          {/* LEFT: TEXT CONTENT - Takes 3 columns on large screens */}
+          {/* LEFT: TEXT CONTENT */}
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="lg:col-span-3 space-y-6 text-left"
           >
+            {/* TRANSLATED: Woldia University */}
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight">
-              Woldia University
+              {t('woldiaUniversity')}
             </h1>
             
+            {/* Already translated via t('library') */}
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Library Management System
+              {t('library')}
             </h2>
             
+            {/* TRANSLATED: Full sentence */}
             <p className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-2xl">
-              Library connects readers with knowledge{' '}
+              {t('connectsReaders')} {' '}
               <span className="inline-block min-w-[130px] relative">
                 <span className="font-bold text-cyan-400">
                   {displayedText.split('').map((letter, i) => (
@@ -183,7 +192,7 @@ export default function Home() {
                 href="/login"
                 className="inline-block mt-8 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-lg rounded-2xl shadow-2xl hover:shadow-3xl transform transition-all duration-300 hover:brightness-110"
               >
-                Get Started
+                {t('login')}
                 <motion.span
                   animate={{ x: [0, 5, 0] }}
                   transition={{ 
@@ -199,7 +208,7 @@ export default function Home() {
             </motion.div>
           </motion.div>
 
-          {/* RIGHT: GLASS CARDS - Takes 2 columns on large screens */}
+          {/* RIGHT: GLASS CARDS */}
           <div className="lg:col-span-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 max-w-md mx-auto lg:max-w-full">
               
@@ -215,7 +224,7 @@ export default function Home() {
                 
                 <Image 
                   src="/w1.jpg" 
-                  alt="Library" 
+                  alt={t('explore')} 
                   fill 
                   className="object-cover group-hover:scale-110 transition-transform duration-700"
                   priority
@@ -223,12 +232,11 @@ export default function Home() {
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
                   <div className="transform group-hover:translate-y-0 translate-y-2 transition-transform duration-300">
-                    <p className="text-white font-semibold text-base mb-1">Explore Our Collection</p>
-                    <p className="text-gray-300 text-xs">Discover thousands of books and resources</p>
+                    <p className="text-white font-semibold text-base mb-1">{t('explore')}</p>
+                    <p className="text-gray-300 text-xs">{t('discover')}</p>
                   </div>
                 </div>
                 
-                {/* Shine Effect */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
               </motion.div>
 
@@ -244,7 +252,7 @@ export default function Home() {
                 
                 <Image 
                   src="/w4.jpg" 
-                  alt="Students" 
+                  alt={t('learn')} 
                   fill 
                   className="object-cover group-hover:scale-110 transition-transform duration-700"
                   priority
@@ -252,18 +260,23 @@ export default function Home() {
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
                   <div className="transform group-hover:translate-y-0 translate-y-2 transition-transform duration-300">
-                    <p className="text-white font-semibold text-base mb-1">Learn Without Limits</p>
-                    <p className="text-gray-300 text-xs">Access knowledge from anywhere in the world</p>
+                    <p className="text-white font-semibold text-base mb-1">{t('learn')}</p>
+                    <p className="text-gray-300 text-xs">{t('anywhere')}</p>
                   </div>
                 </div>
                 
-                {/* Shine Effect */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
               </motion.div>
             </div>
           </div>
         </div>
       </div>
-    </>
-  )
+
+      {/* FOOTER - REUSED BELOW IMAGES */}
+      {/* FOOTER - REUSED BELOW IMAGES */}
+<div className="mt-auto">
+  <Footer variant="dark" />   {/* ← This gives black bg + white text */}
+</div>
+    </div>
+  );
 }

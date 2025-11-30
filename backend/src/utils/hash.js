@@ -1,3 +1,4 @@
+//utils/hash.js
 import bcrypt from 'bcrypt';
 
 export const hashPassword = async (plain) => {
