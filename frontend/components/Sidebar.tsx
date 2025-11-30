@@ -70,6 +70,7 @@ export default function Sidebar({ role }: SidebarProps) {
   const teacherMenu: MenuItem[] = [
     { label: t('dashboard'), href: '/teacher', icon: FaHome },
     { label: t('books'), href: '/teacher/books', icon: FaBook },
+    { label: t('borrow'), href: '/teacher/borrow', icon: FaBookOpen },
     { label: t('comment'), href: '/teacher/comment', icon: FaComment },
     { label: t('news'), href: '/teacher/news', icon: FaPlus },
     {
