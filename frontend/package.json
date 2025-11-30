@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "axios": "^1.7.7",
     "framer-motion": "^12.23.24",
     "next": "14.2.5",
