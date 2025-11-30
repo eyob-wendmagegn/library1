@@ -12,6 +12,16 @@ const bookSchema = Joi.object({
   copies: Joi.number().integer().min(0).required(),
 });
 
+// Update schema without id field
+const updateBookSchema = Joi.object({
+  name: Joi.string().required(),
+  title: Joi.string().required(),
+  category: Joi.string().required(),
+  publisher: Joi.string().required(),
+  isbn: Joi.string().required(),
+  copies: Joi.number().integer().min(0).required(),
+});
+
 export const addBook = async (req, res) => {
   const { error, value } = bookSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
@@ -71,7 +81,8 @@ export const getBookById = async (req, res) => {
 };
 
 export const updateBook = async (req, res) => {
-  const { error, value } = bookSchema.validate(req.body);
+  // Use updateBookSchema which doesn't require id field
+  const { error, value } = updateBookSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
 
   try {

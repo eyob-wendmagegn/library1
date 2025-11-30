@@ -1,4 +1,4 @@
-// app/librarian/books/page.tsx — FIXED VERSION (TypeScript safe)
+// app/librarian/books/page.tsx 
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -217,9 +217,19 @@ export default function LibrarianBooks() {
   const handleUpdate = async () => {
     if (!editForm) return;
     setUpdating(true);
-    const { id, ...data } = editForm;
+    
+    // Create update data without the id field
+    const updateData = {
+      name: editForm.name,
+      title: editForm.title,
+      category: editForm.category,
+      publisher: editForm.publisher,
+      isbn: editForm.isbn,
+      copies: editForm.copies
+    };
+    
     try {
-      await api.put(`/books/${id}`, data);
+      await api.put(`/books/${editForm.id}`, updateData);
       setEditForm(null);
       showToast(t('updated'), 'success');
       fetchBooks();
