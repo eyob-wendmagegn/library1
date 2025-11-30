@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import api from '@/lib/api';
-import { FiSearch, FiBookOpen, FiRotateCcw, FiEye, FiX, FiDollarSign } from 'react-icons/fi';
+import { FiSearch, FiBookOpen, FiRotateCcw, FiEye, FiX, FiDollarSign, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation } from '@/lib/i18n'; // ← ADDED
+import { useTranslation } from '@/lib/i18n';
 
 // Modal
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
@@ -41,9 +41,86 @@ function Toast({ toast }: { toast: { message: string; type: 'success' | 'error' 
   );
 }
 
+// Pagination Component
+function Pagination({ currentPage, totalPages, onPageChange }: { currentPage: number; totalPages: number; onPageChange: (page: number) => void }) {
+  const pages = [];
+  const maxVisiblePages = 5;
+
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-2 mt-6">
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+      >
+        <FiChevronLeft className="w-4 h-4" />
+        Previous
+      </button>
+
+      {startPage > 1 && (
+        <>
+          <button
+            onClick={() => onPageChange(1)}
+            className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+          >
+            1
+          </button>
+          {startPage > 2 && <span className="px-2">...</span>}
+        </>
+      )}
+
+      {pages.map(page => (
+        <button
+          key={page}
+          onClick={() => onPageChange(page)}
+          className={`px-3 py-2 rounded-lg border ${
+            currentPage === page
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          {page}
+        </button>
+      ))}
+
+      {endPage < totalPages && (
+        <>
+          {endPage < totalPages - 1 && <span className="px-2">...</span>}
+          <button
+            onClick={() => onPageChange(totalPages)}
+            className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+          >
+            {totalPages}
+          </button>
+        </>
+      )}
+
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+      >
+        Next
+        <FiChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 // Borrow Form – 24h default
 function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
-  const { t } = useTranslation(); // ← ADDED
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     userId: '',
     username: '',
@@ -97,7 +174,7 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
 
 // Return Form – show numeric fine
 function ReturnForm({ onSuccess }: { onSuccess: () => void }) {
-  const { t } = useTranslation(); // ← ADDED
+  const { t } = useTranslation();
   const [form, setForm] = useState({ userId: '', bookId: '' });
   const handle = (e: any) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -123,7 +200,7 @@ function ReturnForm({ onSuccess }: { onSuccess: () => void }) {
 
 // View Borrow Form
 function ViewBorrowForm({ form, setForm, onSubmit }: any) {
-  const { t } = useTranslation(); // ← ADDED
+  const { t } = useTranslation();
   const handle = (e: any) => setForm({ ...form, [e.target.name]: e.target.value });
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-3">
@@ -136,7 +213,7 @@ function ViewBorrowForm({ form, setForm, onSubmit }: any) {
 
 // Pay Fine Form — Chapa + Telebirr
 function PayFineForm({ fine, borrowId, onSuccess, onClose }: { fine: number; borrowId: string; onSuccess: () => void; onClose: () => void }) {
-  const { t } = useTranslation(); // ← ADDED
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [showTelebirr, setShowTelebirr] = useState(false);
   const [mobile, setMobile] = useState('');
@@ -239,7 +316,7 @@ function PayFineForm({ fine, borrowId, onSuccess, onClose }: { fine: number; bor
 
 // Main Page
 export default function StudentBooks() {
-  const { t } = useTranslation(); // ← ADDED
+  const { t } = useTranslation();
   const [books, setBooks] = useState<any[]>([]);
   const [myBorrow, setMyBorrow] = useState<any>(null);
   const [search, setSearch] = useState('');
@@ -249,6 +326,10 @@ export default function StudentBooks() {
   const [showPay, setShowPay] = useState(false);
   const [viewForm, setViewForm] = useState({ userId: '', username: '' });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
 
   useEffect(() => {
     fetchBooks();
@@ -258,6 +339,7 @@ export default function StudentBooks() {
     try {
       const res = await api.get('/books', { params: { search } });
       setBooks(res.data.books);
+      setCurrentPage(1); // Reset to first page when search changes
     } catch (e: any) {
       showToast(e.response?.data?.message || t('failedToLoadBooks') || 'Failed to load', 'error');
     }
@@ -285,6 +367,12 @@ export default function StudentBooks() {
     setShowView(false);
     setShowPay(false);
   };
+
+  // Pagination calculations
+  const indexOfLastBook = currentPage * itemsPerPage;
+  const indexOfFirstBook = indexOfLastBook - itemsPerPage;
+  const currentBooks = books.slice(indexOfFirstBook, indexOfLastBook);
+  const totalPages = Math.ceil(books.length / itemsPerPage);
 
   return (
     <Layout role="student">
@@ -344,21 +432,87 @@ export default function StudentBooks() {
           </div>
         )}
 
-        {/* Books Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {books.length === 0 ? (
-            <p className="col-span-full text-center text-gray-500 py-8">{t('noBooksFound') || 'No books found'}</p>
-          ) : (
-            books.map((book: any) => (
-              <div key={book.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                <h3 className="font-bold text-lg">{book.title}</h3>
-                <p className="text-sm text-gray-600">ID: {book.id}</p>
-                <p className="text-sm">{t('name') || 'Name'}: {book.name}</p>
-                <p className={`text-sm font-medium ${book.copies > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {t('copiesAvailable') || 'Copies Available'}: {book.copies}
-                </p>
-              </div>
-            ))
+        {/* Books Table */}
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Title
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Copies Available
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentBooks.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                      {t('noBooksFound') || 'No books found'}
+                    </td>
+                  </tr>
+                ) : (
+                  currentBooks.map((book: any) => (
+                    <tr 
+                      key={book.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        // You can add book detail view here if needed
+                        console.log('Book clicked:', book);
+                      }}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {book.id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                        {book.title}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {book.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          book.copies > 3 
+                            ? 'bg-green-100 text-green-800'
+                            : book.copies > 0
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {book.copies}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {book.copies > 0 ? (
+                          <span className="text-green-600 font-medium">Available</span>
+                        ) : (
+                          <span className="text-red-600 font-medium">Out of Stock</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
       </div>
