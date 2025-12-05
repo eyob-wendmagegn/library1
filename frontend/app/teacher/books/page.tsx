@@ -1,11 +1,38 @@
+//app/teacher/books/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Layout from '@/components/Layout';
 import api from '@/lib/api';
-import { FiSearch, FiPlus, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { 
+  FiSearch, 
+  FiPlus, 
+  FiX, 
+  FiChevronUp, 
+  FiChevronDown, 
+  FiFilter,
+  FiMoreVertical,
+  FiEye,
+  FiEyeOff,
+  FiColumns
+} from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from '@/lib/i18n';
+
+// TanStack Table
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+  ColumnFiltersState,
+  VisibilityState,
+  SortingFn,
+} from '@tanstack/react-table';
 
 const emptyAddForm = { id: '', name: '', title: '', category: '', publisher: '', isbn: '', copies: 0 };
 
@@ -40,83 +67,6 @@ function Toast({ toast }: { toast: { message: string; type: 'success' | 'error' 
     >
       {toast.message}
     </motion.div>
-  );
-}
-
-// Pagination Component
-function Pagination({ currentPage, totalPages, onPageChange }: { currentPage: number; totalPages: number; onPageChange: (page: number) => void }) {
-  const pages = [];
-  const maxVisiblePages = 5;
-
-  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-  if (endPage - startPage + 1 < maxVisiblePages) {
-    startPage = Math.max(1, endPage - maxVisiblePages + 1);
-  }
-
-  for (let i = startPage; i <= endPage; i++) {
-    pages.push(i);
-  }
-
-  return (
-    <div className="flex items-center justify-center gap-2 mt-6">
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-      >
-        <FiChevronLeft className="w-4 h-4" />
-        Previous
-      </button>
-
-      {startPage > 1 && (
-        <>
-          <button
-            onClick={() => onPageChange(1)}
-            className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
-          >
-            1
-          </button>
-          {startPage > 2 && <span className="px-2">...</span>}
-        </>
-      )}
-
-      {pages.map(page => (
-        <button
-          key={page}
-          onClick={() => onPageChange(page)}
-          className={`px-3 py-2 rounded-lg border ${
-            currentPage === page
-              ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'border-gray-300 hover:bg-gray-50'
-          }`}
-        >
-          {page}
-        </button>
-      ))}
-
-      {endPage < totalPages && (
-        <>
-          {endPage < totalPages - 1 && <span className="px-2">...</span>}
-          <button
-            onClick={() => onPageChange(totalPages)}
-            className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
-          >
-            {totalPages}
-          </button>
-        </>
-      )}
-
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-      >
-        Next
-        <FiChevronRight className="w-4 h-4" />
-      </button>
-    </div>
   );
 }
 
@@ -159,6 +109,207 @@ function AddBookForm({ form, setForm, onSubmit }: any) {
   );
 }
 
+// Column Menu Component
+function ColumnMenu({ column, onClose }: { column: any; onClose: () => void }) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={menuRef}
+      className="absolute right-0 top-6 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48"
+    >
+      <div className="p-2">
+        <button
+          onClick={() => {
+            column.toggleSorting(false);
+            onClose();
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-100 rounded"
+        >
+          <FiChevronUp className="w-4 h-4" />
+          Sort Ascending
+        </button>
+        <button
+          onClick={() => {
+            column.toggleSorting(true);
+            onClose();
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-100 rounded"
+        >
+          <FiChevronDown className="w-4 h-4" />
+          Sort Descending
+        </button>
+        {column.getIsSorted() && (
+          <button
+            onClick={() => {
+              column.clearSorting();
+              onClose();
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-100 rounded"
+          >
+            <FiX className="w-4 h-4" />
+            Clear Sort
+          </button>
+        )}
+        
+        <div className="border-t my-1"></div>
+        
+        <button
+          onClick={() => {
+            column.toggleVisibility();
+            onClose();
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-100 rounded"
+        >
+          {column.getIsVisible() ? (
+            <>
+              <FiEyeOff className="w-4 h-4" />
+              Hide Column
+            </>
+          ) : (
+            <>
+              <FiEye className="w-4 h-4" />
+              Show Column
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Columns Visibility Menu Component
+function ColumnsVisibilityMenu({ table, onClose }: { table: any; onClose: () => void }) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  // Map column IDs to display names
+  const columnDisplayNames: { [key: string]: string } = {
+    id: 'ID',
+    title: 'Title',
+    name: 'Name',
+    category: 'Category',
+    publisher: 'Publisher',
+    isbn: 'ISBN',
+    copies: 'Copies',
+    status: 'Status'
+  };
+
+  return (
+    <div
+      ref={menuRef}
+      className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48"
+    >
+      <div className="p-2">
+        <div className="text-xs font-semibold text-gray-500 px-2 py-1 uppercase tracking-wide">
+          Show/Hide Columns
+        </div>
+        {table.getAllLeafColumns().map((column: any) => (
+          <label key={column.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 rounded cursor-pointer">
+            <input
+              type="checkbox"
+              checked={column.getIsVisible()}
+              onChange={column.getToggleVisibilityHandler()}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="flex-1">{columnDisplayNames[column.id] || column.id}</span>
+          </label>
+        ))}
+        <div className="border-t my-1"></div>
+        <button
+          onClick={() => {
+            table.resetColumnVisibility();
+            onClose();
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-100 rounded text-blue-600"
+        >
+          <FiEye className="w-4 h-4" />
+          Show All Columns
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Sortable Column Header Component
+function SortableHeader({ column, children }: { column: any; children: React.ReactNode }) {
+  const [showMenu, setShowMenu] = useState(false);
+  const sorted = column.getIsSorted();
+
+  return (
+    <div className="flex items-center justify-between group relative">
+      <div className="flex items-center gap-1 flex-1">
+        <span>{children}</span>
+        <div className="flex flex-col">
+          {sorted === 'asc' ? (
+            <FiChevronUp className="w-3 h-3 text-blue-600" />
+          ) : sorted === 'desc' ? (
+            <FiChevronDown className="w-3 h-3 text-blue-600" />
+          ) : (
+            <>
+              <FiChevronUp className="w-2 h-2 text-gray-400" />
+              <FiChevronDown className="w-2 h-2 text-gray-400 -mt-1" />
+            </>
+          )}
+        </div>
+      </div>
+      
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowMenu(!showMenu);
+        }}
+        className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <FiMoreVertical className="w-3 h-3 text-gray-500" />
+      </button>
+      
+      {showMenu && (
+        <ColumnMenu column={column} onClose={() => setShowMenu(false)} />
+      )}
+    </div>
+  );
+}
+
+// Custom sorting function for ID column to handle numeric values
+const numericSort: SortingFn<any> = (rowA, rowB, columnId) => {
+  const valueA = rowA.getValue(columnId);
+  const valueB = rowB.getValue(columnId);
+  
+  // Convert to numbers for comparison
+  const numA = Number(valueA);
+  const numB = Number(valueB);
+  
+  // If both are valid numbers, compare numerically
+  if (!isNaN(numA) && !isNaN(numB)) {
+    return numA - numB;
+  }
+  
+  // Fallback to string comparison
+  return String(valueA).localeCompare(String(valueB));
+};
+
 // Main Teacher Books Component
 export default function TeacherBooks() {
   const { t } = useTranslation();
@@ -167,22 +318,29 @@ export default function TeacherBooks() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState(emptyAddForm);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [showSearch, setShowSearch] = useState(false);
+  const [showColumnsMenu, setShowColumnsMenu] = useState(false);
 
   useEffect(() => {
     fetchBooks();
   }, [search]);
 
   const fetchBooks = async () => {
+    setIsLoading(true);
     try {
       const res = await api.get('/books', { params: { search } });
       setBooks(res.data.books);
-      setCurrentPage(1); // Reset to first page when search changes
     } catch (e: any) {
       showToast(e.response?.data?.message || t('failedToLoadBooks') || 'Failed to load books', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -203,11 +361,133 @@ export default function TeacherBooks() {
     }
   };
 
-  // Pagination calculations
-  const indexOfLastBook = currentPage * itemsPerPage;
-  const indexOfFirstBook = indexOfLastBook - itemsPerPage;
-  const currentBooks = books.slice(indexOfFirstBook, indexOfLastBook);
-  const totalPages = Math.ceil(books.length / itemsPerPage);
+  // Define columns
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        accessorKey: 'id',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            ID
+          </SortableHeader>
+        ),
+        cell: ({ row }) => (
+          <span className="text-sm">{row.getValue('id')}</span>
+        ),
+        size: 80,
+        sortingFn: numericSort, // Use custom numeric sorting for ID
+      },
+      {
+        accessorKey: 'title',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            Title
+          </SortableHeader>
+        ),
+        cell: ({ row }) => (
+          <span className="font-medium">{row.getValue('title')}</span>
+        ),
+        size: 200,
+      },
+      {
+        accessorKey: 'name',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            Name
+          </SortableHeader>
+        ),
+        size: 150,
+      },
+      {
+        accessorKey: 'category',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            Category
+          </SortableHeader>
+        ),
+        cell: ({ row }) => row.getValue('category') || '-',
+        size: 150,
+      },
+      {
+        accessorKey: 'publisher',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            Publisher
+          </SortableHeader>
+        ),
+        cell: ({ row }) => row.getValue('publisher') || '-',
+        size: 150,
+      },
+      {
+        accessorKey: 'isbn',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            ISBN
+          </SortableHeader>
+        ),
+        cell: ({ row }) => row.getValue('isbn') || '-',
+        size: 150,
+      },
+      {
+        accessorKey: 'copies',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            Copies
+          </SortableHeader>
+        ),
+        cell: ({ row }) => {
+          const copies = row.getValue('copies') as number;
+          return (
+            <span className="text-sm font-medium">
+              {copies}
+            </span>
+          );
+        },
+        size: 100,
+      },
+      {
+        accessorKey: 'status',
+        header: ({ column }) => (
+          <SortableHeader column={column}>
+            Status
+          </SortableHeader>
+        ),
+        cell: ({ row }) => {
+          const copies = row.original.copies;
+          const status = copies > 0 ? 'Available' : 'Out of Stock';
+          return (
+            <span className={`text-sm font-medium ${
+              status === 'Available' ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {status}
+            </span>
+          );
+        },
+        size: 120,
+      },
+    ],
+    []
+  );
+
+  // Initialize table
+  const table = useReactTable({
+    data: books,
+    columns,
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter,
+      columnVisibility,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  });
 
   return (
     <Layout role="teacher">
@@ -241,102 +521,148 @@ export default function TeacherBooks() {
           </div>
         </div>
 
-        {/* Books Table */}
+        {/* Table Section */}
         <div className="bg-white rounded-xl shadow overflow-hidden">
+          {/* Search and Filter Controls */}
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                {/* Show/Hide Search Button */}
+                <button
+                  onClick={() => setShowSearch(!showSearch)}
+                  className="flex items-center gap-2 px-3 py-1 text-sm border rounded hover:bg-gray-50"
+                  title={showSearch ? "Hide search" : "Show search"}
+                >
+                  <FiSearch className="w-4 h-4" />
+                  {showSearch ? "Hide search" : "Show search"}
+                </button>
+
+                {/* Columns Visibility Button */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowColumnsMenu(!showColumnsMenu)}
+                    className="flex items-center gap-2 px-3 py-1 text-sm border rounded hover:bg-gray-50"
+                    title="Show/Hide columns"
+                  >
+                    <FiColumns className="w-4 h-4" />
+                    
+                  </button>
+                  
+                  {showColumnsMenu && (
+                    <ColumnsVisibilityMenu 
+                      table={table} 
+                      onClose={() => setShowColumnsMenu(false)} 
+                    />
+                  )}
+                </div>
+              </div>
+              
+              {/* Global Search */}
+              {showSearch && (
+                <div className="flex items-center gap-2">
+                  <FiSearch className="text-gray-500" />
+                  <input
+                    placeholder="Search all columns..."
+                    value={globalFilter ?? ''}
+                    onChange={e => setGlobalFilter(String(e.target.value))}
+                    className="border rounded px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Publisher
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ISBN
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Copies Available
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th 
+                        key={header.id} 
+                        className="px-4 py-3 text-left text-sm font-semibold text-gray-900 uppercase tracking-wider border-r last:border-r-0"
+                        style={{ width: header.getSize() }}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentBooks.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                      {t('noBooksFound') || 'No books found'}
-                    </td>
-                  </tr>
-                ) : (
-                  currentBooks.map((book: any) => (
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map(row => (
                     <tr 
-                      key={book.id} 
+                      key={row.id} 
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {book.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        {book.title}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {book.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {book.category || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {book.publisher || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {book.isbn || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          book.copies > 3 
-                            ? 'bg-green-100 text-green-800'
-                            : book.copies > 0
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {book.copies}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {book.copies > 0 ? (
-                          <span className="text-green-600 font-medium">Available</span>
-                        ) : (
-                          <span className="text-red-600 font-medium">Out of Stock</span>
-                        )}
-                      </td>
+                      {row.getVisibleCells().map(cell => (
+                        <td 
+                          key={cell.id} 
+                          className="px-4 py-3 text-sm text-gray-900 border-r last:border-r-0"
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
                     </tr>
                   ))
+                ) : (
+                  <tr>
+                    <td colSpan={columns.length} className="px-6 py-8 text-center text-gray-500">
+                      {isLoading ? 'Loading books...' : (t('noBooksFound') || 'No books found')}
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          )}
+          {/* Pagination - Exact match to image */}
+          <div className="flex items-center justify-between px-6 py-4 border-t">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-700">Rows per page</span>
+              <select
+                value={table.getState().pagination.pageSize}
+                onChange={e => table.setPageSize(Number(e.target.value))}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                {[5, 10, 20, 30, 40, 50].map(pageSize => (
+                  <option key={pageSize} value={pageSize}>
+                    {pageSize}
+                  </option>
+                ))}
+              </select>
+              <span className="text-sm text-gray-700">
+                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )} of {table.getFilteredRowModel().rows.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
