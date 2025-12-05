@@ -12,7 +12,7 @@ const bookSchema = Joi.object({
   copies: Joi.number().integer().min(0).required(),
 });
 
-// Update schema without id field
+
 const updateBookSchema = Joi.object({
   name: Joi.string().required(),
   title: Joi.string().required(),
@@ -81,7 +81,7 @@ export const getBookById = async (req, res) => {
 };
 
 export const updateBook = async (req, res) => {
-  // Use updateBookSchema which doesn't require id field
+  
   const { error, value } = updateBookSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
 
