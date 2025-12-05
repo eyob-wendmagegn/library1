@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import api from '@/lib/api';
-import { FiSearch, FiBookOpen, FiRotateCcw, FiEye, FiX, FiDollarSign, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from '@/lib/i18n';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { FiBookOpen, FiCheck, FiChevronLeft, FiChevronRight, FiClock, FiDollarSign, FiEye, FiRotateCcw, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
 
 // Modal
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
@@ -32,9 +32,8 @@ function Toast({ toast }: { toast: { message: string; type: 'success' | 'error' 
       initial={{ x: 100 }}
       animate={{ x: 0 }}
       exit={{ x: 100 }}
-      className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg text-white flex items-center gap-2 ${
-        toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-      }`}
+      className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg text-white flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`}
     >
       {toast.message}
     </motion.div>
@@ -84,11 +83,10 @@ function Pagination({ currentPage, totalPages, onPageChange }: { currentPage: nu
         <button
           key={page}
           onClick={() => onPageChange(page)}
-          className={`px-3 py-2 rounded-lg border ${
-            currentPage === page
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'border-gray-300 hover:bg-gray-50'
-          }`}
+          className={`px-3 py-2 rounded-lg border ${currentPage === page
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'border-gray-300 hover:bg-gray-50'
+            }`}
         >
           {page}
         </button>
@@ -118,8 +116,8 @@ function Pagination({ currentPage, totalPages, onPageChange }: { currentPage: nu
   );
 }
 
-// Borrow Form – 24h default
-function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
+// Request Form – for students to submit book requests
+function RequestForm({ onSuccess }: { onSuccess: () => void }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
     userId: '',
@@ -142,13 +140,13 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
   const submit = async (e: any) => {
     e.preventDefault();
     try {
-      await api.post('/borrows/borrow', {
+      await api.post('/borrows/request', {
         ...form,
         dueDate: new Date(form.dueDate).toISOString(),
       });
       onSuccess();
     } catch (e: any) {
-      alert(e.response?.data?.message || t('borrowFailed') || 'Borrow failed');
+      alert(e.response?.data?.message || t('requestFailed') || 'Request failed');
     }
   };
 
@@ -167,7 +165,7 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
         min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
         className="w-full border p-2 rounded"
       />
-      <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">{t('borrowBook') || 'Borrow Book'}</button>
+      <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">{t('requestBook') || 'Request Book'}</button>
     </form>
   );
 }
@@ -318,21 +316,23 @@ function PayFineForm({ fine, borrowId, onSuccess, onClose }: { fine: number; bor
 export default function StudentBooks() {
   const { t } = useTranslation();
   const [books, setBooks] = useState<any[]>([]);
+  const [myRequests, setMyRequests] = useState<any[]>([]);
   const [myBorrow, setMyBorrow] = useState<any>(null);
   const [search, setSearch] = useState('');
-  const [showBorrow, setShowBorrow] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
   const [showView, setShowView] = useState(false);
   const [showPay, setShowPay] = useState(false);
   const [viewForm, setViewForm] = useState({ userId: '', username: '' });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
   useEffect(() => {
     fetchBooks();
+    fetchMyRequests();
   }, [search]);
 
   const fetchBooks = async () => {
@@ -342,6 +342,30 @@ export default function StudentBooks() {
       setCurrentPage(1); // Reset to first page when search changes
     } catch (e: any) {
       showToast(e.response?.data?.message || t('failedToLoadBooks') || 'Failed to load', 'error');
+    }
+  };
+
+  const fetchMyRequests = async () => {
+    try {
+      const userData = localStorage.getItem('user');
+      if (!userData) return;
+
+      const user = JSON.parse(userData);
+      const res = await api.get('/borrows', {
+        params: {
+          search: user.id || user.userId,
+          limit: 50
+        }
+      });
+
+      // Filter requests for this user
+      const userRequests = res.data.borrows.filter((borrow: any) =>
+        borrow.userId === (user.id || user.userId)
+      );
+
+      setMyRequests(userRequests);
+    } catch (e: any) {
+      console.error('Failed to fetch requests:', e);
     }
   };
 
@@ -362,7 +386,7 @@ export default function StudentBooks() {
   };
 
   const closeAll = () => {
-    setShowBorrow(false);
+    setShowRequest(false);
     setShowReturn(false);
     setShowView(false);
     setShowPay(false);
@@ -385,8 +409,8 @@ export default function StudentBooks() {
               <p className="text-gray-600">{t('borrowReturnView') || 'Borrow, return, and view your borrowed book'}</p>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <button onClick={() => setShowBorrow(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                <FiBookOpen /> {t('borrow') || 'Borrow'}
+              <button onClick={() => setShowRequest(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                <FiBookOpen /> {t('request') || 'Request'}
               </button>
 
               {myBorrow && (
@@ -432,6 +456,57 @@ export default function StudentBooks() {
           </div>
         )}
 
+        {/* Request Status Section */}
+        {myRequests.length > 0 && (
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-xl font-bold mb-4">{t('myRequests') || 'My Requests'}</h2>
+            <div className="space-y-3">
+              {myRequests.map((request) => (
+                <div key={request._id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">{request.bookTitle}</p>
+                      <p className="text-sm text-gray-600">
+                        {t('requested') || 'Requested'}: {new Date(request.requestedAt).toLocaleString()}
+                      </p>
+                      {request.dueDate && (
+                        <p className="text-sm text-gray-600">
+                          {t('due') || 'Due'}: {new Date(request.dueDate).toLocaleString()}
+                        </p>
+                      )}
+                      {request.rejectionReason && (
+                        <p className="text-sm text-red-600">
+                          {t('reason') || 'Reason'}: {request.rejectionReason}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {request.status === 'pending' && (
+                        <>
+                          <FiClock className="text-yellow-500" />
+                          <span className="text-yellow-600 font-medium">{t('pending') || 'Pending'}</span>
+                        </>
+                      )}
+                      {request.status === 'approved' && (
+                        <>
+                          <FiCheck className="text-green-500" />
+                          <span className="text-green-600 font-medium">{t('approved') || 'Approved'}</span>
+                        </>
+                      )}
+                      {request.status === 'rejected' && (
+                        <>
+                          <FiXCircle className="text-red-500" />
+                          <span className="text-red-600 font-medium">{t('rejected') || 'Rejected'}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Books Table */}
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <div className="overflow-x-auto">
@@ -464,8 +539,8 @@ export default function StudentBooks() {
                   </tr>
                 ) : (
                   currentBooks.map((book: any) => (
-                    <tr 
-                      key={book.id} 
+                    <tr
+                      key={book.id}
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
                       onClick={() => {
                         // You can add book detail view here if needed
@@ -482,13 +557,12 @@ export default function StudentBooks() {
                         {book.name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          book.copies > 3 
-                            ? 'bg-green-100 text-green-800'
-                            : book.copies > 0
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${book.copies > 3
+                          ? 'bg-green-100 text-green-800'
+                          : book.copies > 0
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {book.copies}
                         </span>
                       </td>
@@ -519,10 +593,10 @@ export default function StudentBooks() {
 
       {/* Modals */}
       <AnimatePresence>
-        {showBorrow && (
+        {showRequest && (
           <Modal onClose={closeAll}>
-            <h2 className="text-xl font-bold mb-4">{t('borrowABook') || 'Borrow a Book'}</h2>
-            <BorrowForm onSuccess={() => { closeAll(); showToast(t('borrowed') || 'Borrowed!', 'success'); }} />
+            <h2 className="text-xl font-bold mb-4">{t('requestABook') || 'Request a Book'}</h2>
+            <RequestForm onSuccess={() => { closeAll(); fetchMyRequests(); showToast(t('requested') || 'Requested!', 'success'); }} />
           </Modal>
         )}
         {showReturn && (

@@ -1,19 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import api from '@/lib/api';
+import { useTranslation } from '@/lib/i18n'; // ← ADDED
+import { useEffect, useState } from 'react';
+import { FiBookOpen, FiCheck, FiClock, FiEye, FiRotateCcw, FiXCircle } from 'react-icons/fi';
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
-import { FiBookOpen, FiEye, FiRotateCcw, FiTrendingUp, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
-import { useTranslation } from '@/lib/i18n'; // ← ADDED
 
 interface Borrow {
   bookTitle: string;
@@ -21,6 +21,15 @@ interface Borrow {
   returnedAt?: string;
   fine: number;
   status: string;
+}
+
+interface Request {
+  _id: string;
+  bookTitle: string;
+  requestedAt: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  dueDate?: string;
 }
 
 interface CurrentBook {
@@ -38,12 +47,13 @@ interface StudentStats {
   currentBooks: CurrentBook[];
   history: Borrow[];
   readingProgress: number;
+  requests: Request[];
 }
 
 /** Native date formatter – no external deps */
 const formatDate = (dateStr: string, fmt: 'MMM dd') => {
   const d = new Date(dateStr);
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   if (fmt === 'MMM dd') return `${months[d.getMonth()]} ${d.getDate()}`;
   return d.toLocaleDateString();
 };
@@ -51,6 +61,7 @@ const formatDate = (dateStr: string, fmt: 'MMM dd') => {
 export default function StudentDashboard() {
   const { t } = useTranslation(); // ← ADDED
   const [stats, setStats] = useState<StudentStats | null>(null);
+  const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -65,7 +76,34 @@ export default function StudentDashboard() {
         setLoading(false);
       }
     };
+
+    const fetchRequests = async () => {
+      try {
+        const userData = localStorage.getItem('user');
+        if (!userData) return;
+
+        const user = JSON.parse(userData);
+        const res = await api.get('/borrows', {
+          params: {
+            search: user.id || user.userId,
+            limit: 50
+          }
+        });
+
+        // Filter requests for this user
+        const userRequests = res.data.borrows.filter((borrow: any) =>
+          borrow.userId === (user.id || user.userId) &&
+          ['pending', 'approved', 'rejected'].includes(borrow.status)
+        );
+
+        setRequests(userRequests);
+      } catch (e: any) {
+        console.error('Failed to fetch requests:', e);
+      }
+    };
+
     fetchStats();
+    fetchRequests();
   }, []);
 
   const returnBook = async (bookId: string) => {
@@ -192,11 +230,10 @@ export default function StudentDashboard() {
 
                     <div className="flex items-center gap-2">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          isOverdue
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-green-100 text-green-700'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${isOverdue
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-green-100 text-green-700'
+                          }`}
                       >
                         {isOverdue ? t('dueSoon') || 'Due Soon' : t('active') || 'Active'}
                       </span>
@@ -214,6 +251,66 @@ export default function StudentDashboard() {
             </div>
           )}
         </div>
+
+        {/* ==== BOOK REQUESTS ==== */}
+        {requests.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              {t('myRequests') || 'My Requests'}
+            </h2>
+            <div className="space-y-3">
+              {requests.map((request) => (
+                <div
+                  key={request._id}
+                  className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between"
+                >
+                  <div>
+                    <h3 className="font-medium text-gray-800">{request.bookTitle}</h3>
+                    <p className="text-sm text-gray-500">
+                      {t('requested') || 'Requested'}: {new Date(request.requestedAt).toLocaleDateString()}
+                    </p>
+                    {request.dueDate && (
+                      <p className="text-sm text-gray-500">
+                        {t('due') || 'Due'}: {new Date(request.dueDate).toLocaleDateString()}
+                      </p>
+                    )}
+                    {request.rejectionReason && (
+                      <p className="text-sm text-red-600">
+                        {t('reason') || 'Reason'}: {request.rejectionReason}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {request.status === 'pending' && (
+                      <>
+                        <FiClock className="w-4 h-4 text-yellow-500" />
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          {t('pending') || 'Pending'}
+                        </span>
+                      </>
+                    )}
+                    {request.status === 'approved' && (
+                      <>
+                        <FiCheck className="w-4 h-4 text-green-500" />
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          {t('approved') || 'Approved'}
+                        </span>
+                      </>
+                    )}
+                    {request.status === 'rejected' && (
+                      <>
+                        <FiXCircle className="w-4 h-4 text-red-500" />
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          {t('rejected') || 'Rejected'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ==== HISTORY CHART ==== */}
         <div className="bg-white rounded-xl shadow-sm p-6">
